@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     try {
         // Parse request body
         const body = await request.json() as RenderRequest;
-        const { url, preset = 'square', fontSize = 'medium', cardStyle = 'classic', templateVersion = 'v1' } = body;
+        const { url, preset = 'square', fontSize = 100, cardStyle = 'classic', templateVersion = 'v1' } = body;
 
         // Validate required fields
         if (!url) {
