@@ -1,5 +1,5 @@
-# Use Node.js with Playwright pre-installed
-FROM mcr.microsoft.com/playwright:v1.40.0-focal
+# Use Node.js with Playwright pre-installed (matching installed version)
+FROM mcr.microsoft.com/playwright:v1.57.0-noble
 
 WORKDIR /app
 
