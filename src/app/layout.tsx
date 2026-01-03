@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Transform your Letterboxd reviews into beautiful, shareable images. Perfect for Instagram, Twitter, and Stories.",
   keywords: ["letterboxd", "film reviews", "movie reviews", "image generator", "social media"],
   openGraph: {
-    title: "Letterboxd Image Generator",
+    title: "Letterboxd Review Generator",
     description: "Transform your Letterboxd reviews into beautiful, shareable images.",
     type: "website",
   },
