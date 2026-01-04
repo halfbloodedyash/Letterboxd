@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Ping Render App
         run: |
-          curl -s https://letterboxd-wrapped.onrender.com/api/health > /dev/null
+          curl -s https://letterboxd-gsli.onrender.com/api/health > /dev/null
           echo "Pinged Render at $(date)"
