@@ -39,6 +39,55 @@ function getClientIp(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+    // Proxy to Render if RENDER_API_URL is configured (for Vercel deployment)
+    const renderApiUrl = process.env.RENDER_API_URL;
+    if (renderApiUrl) {
+        try {
+            const body = await request.json();
+            const proxyResponse = await fetch(`${renderApiUrl}/api/render`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Forward client IP for rate limiting on Render
+                    'X-Forwarded-For': request.headers.get('x-forwarded-for') || '',
+                    'X-Real-IP': request.headers.get('x-real-ip') || '',
+                },
+                body: JSON.stringify(body),
+            });
+
+            // Forward the response from Render
+            const responseHeaders = new Headers();
+            responseHeaders.set('Content-Type', proxyResponse.headers.get('Content-Type') || 'application/json');
+            if (proxyResponse.headers.get('Cache-Control')) {
+                responseHeaders.set('Cache-Control', proxyResponse.headers.get('Cache-Control')!);
+            }
+            responseHeaders.set('X-Proxy', 'vercel-to-render');
+
+            if (!proxyResponse.ok) {
+                const errorData = await proxyResponse.json();
+                return NextResponse.json(errorData, {
+                    status: proxyResponse.status,
+                    headers: responseHeaders
+                });
+            }
+
+            const imageBuffer = await proxyResponse.arrayBuffer();
+            return new NextResponse(imageBuffer, {
+                status: 200,
+                headers: responseHeaders,
+            });
+        } catch (error) {
+            console.error('Proxy error:', error);
+            const apiError: ApiError = {
+                error: 'Failed to proxy request to render service',
+                code: 'PROXY_ERROR',
+                details: error instanceof Error ? error.message : 'Unknown error',
+            };
+            return NextResponse.json(apiError, { status: 502 });
+        }
+    }
+
+    // Local rendering (for Render deployment or local dev without proxy)
     const ip = getClientIp(request);
 
     // Check rate limit
