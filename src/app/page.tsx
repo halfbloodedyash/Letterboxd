@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import ReviewForm from '@/components/ReviewForm';
 import ImagePreview from '@/components/ImagePreview';
 import ErrorMessage from '@/components/ErrorMessage';
-import ThemeToggle from '@/components/ThemeToggle';
-import { SizePreset, FontSize, CardStyle } from '@/types/review';
+import PreviewModal from '@/components/PreviewModal';
+import { SizePreset, FontSize, CardStyle, ReviewMetadata } from '@/types/review';
+import { renderCardToCanvas } from '@/lib/client-canvas-renderer';
 
 export default function Home() {
     const [isLoading, setIsLoading] = useState(false);
@@ -15,10 +16,11 @@ export default function Home() {
     const [currentFontSize, setCurrentFontSize] = useState<FontSize>(100);
     const [currentCardStyle, setCurrentCardStyle] = useState<CardStyle>('classic');
     const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const lastUrlRef = useRef<string>('');
 
-    // Generate image from URL
+    // Generate image using hybrid approach: server-side parsing + client-side Canvas rendering
     const generateImage = useCallback(async (
         url: string,
         preset: SizePreset,
@@ -30,18 +32,22 @@ export default function Home() {
         lastUrlRef.current = url;
 
         try {
-            const response = await fetch('/api/render', {
+            // Parse review metadata (server-side - uses cheerio)
+            const parseResponse = await fetch('/api/parse', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, preset, fontSize, cardStyle }),
+                body: JSON.stringify({ url }),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to generate image');
+            if (!parseResponse.ok) {
+                const errorData = await parseResponse.json();
+                throw new Error(errorData.error || 'Failed to parse review');
             }
 
-            const blob = await response.blob();
+            const metadata: ReviewMetadata = await parseResponse.json();
+
+            // Render to canvas (client-side - eliminates Playwright costs!)
+            const blob = await renderCardToCanvas(metadata, preset, fontSize, cardStyle);
             const objectUrl = URL.createObjectURL(blob);
 
             if (imageUrl) {
@@ -96,9 +102,16 @@ export default function Home() {
         document.body.removeChild(link);
     };
 
+    const handlePreview = () => {
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+    };
+
     return (
         <main className="main-container">
-            <ThemeToggle />
 
             <section className="hero">
                 <div className="hero-glow"></div>
@@ -172,6 +185,7 @@ export default function Home() {
                         <ImagePreview
                             imageUrl={imageUrl}
                             preset={currentPreset}
+                            onPreview={handlePreview}
                             onDownload={handleDownload}
                         />
                     </div>
@@ -183,6 +197,14 @@ export default function Home() {
                     Made with ♥ for film lovers. Not affiliated with Letterboxd.
                 </p>
             </footer>
+
+            {isModalOpen && imageUrl && (
+                <PreviewModal
+                    imageUrl={imageUrl}
+                    onClose={handleCloseModal}
+                    onDownload={handleDownload}
+                />
+            )}
         </main>
     );
 }
